@@ -1,0 +1,98 @@
+<!-- <configuration> -->
+<configuration debug="false">
+
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+
+  <!-- Konsole: zeigt alles ab DEBUG -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+
+	<includeCallerData>true</includeCallerData>
+
+    <encoder>
+      <!-- <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : %-5level : %class{36} : %method(%line) : %msg%n</pattern> -->
+      <!-- <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : [%thread] %highlight(%-5level) : %file:%line : %msg%n</pattern> -->
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : %highlight(%-5level) : %file:%line : %msg%n</pattern>
+    </encoder>
+
+  </appender>
+
+  <!-- Datei: nur WARN und ERROR -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+    <file>logs/app.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- tägliche Rotation, alte Logs 7 Tage behalten -->
+      <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>7</maxHistory>
+    </rollingPolicy>
+
+	<includeCallerData>true</includeCallerData>
+
+    <encoder>
+      <!-- <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : %-5level : %class{36} : %method(%line) : %msg%n</pattern> -->
+      <!-- <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : [%thread] %highlight(%-5level) : %file:%line : %msg%n</pattern> -->
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} : %highlight(%-5level) : %file:%line : %msg%n</pattern>
+    </encoder>
+
+    <!-- Filter: nur WARN und ERROR -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>WARN</level>
+      <onMatch>ACCEPT</onMatch>
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>ERROR</level>
+      <onMatch>ACCEPT</onMatch>
+      <onMismatch>DENY</onMismatch>
+    </filter>
+
+  </appender>
+
+  <!-- Root-Logger: alles ab DEBUG -->
+  <root level="INFO">
+
+    <appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+
+  </root>
+
+</configuration>
+
+<!-- Log Level:
+TRACE
+    Allerniedrigstes Level, extrem detailliert.
+    Wird genutzt für sehr feine Ablaufverfolgung („Step by Step“).
+    Beispiel: Jeder Methodenaufruf, jede Schleifeniteration.
+
+DEBUG
+    Für Entwickler gedacht, um interne Zustände sichtbar zu machen.
+    Typisch: Initialisierung, Parameterwerte, Zwischenergebnisse.
+    Beispiel: „Starte Initialisierung der GUI mit Parameter X=42“.
+
+INFO
+    Normale Betriebsinformationen, die auch im Release sinnvoll sind.
+    Beispiel: „Server gestartet auf Port 8080“.
+
+WARN
+    Hinweise auf ungewöhnliche Situationen, die aber nicht kritisch sind.
+    Beispiel: „Konfigurationsdatei nicht gefunden, Standardwerte werden genutzt“.
+
+ERROR
+    Schwere Fehler, die das Programm beeinträchtigen oder stoppen.
+    Beispiel: „Datenbankverbindung fehlgeschlagen“.
+
+FATAL (nicht bei Logback, dort -> ERROR)
+	Katastrophale Fehler, nach denen die Anwendung nicht mehr sinnvoll läuft.
+	Beispiel: Systemabsturz, irreparabler Zustand.
+
+OFF
+    Schaltet Logging komplett ab.
+    
+Benutzung:
+	log.trace("Sehr detaillierte Ablaufverfolgung");
+	log.debug("Debug-Ausgabe für Entwickler");
+	log.info("Normale Betriebsinformation");
+	log.warn("Warnung, aber kein Abbruch");
+	log.error("Schwerer Fehler");
+	log.fatal("System ist abgestürzt");
+-->
