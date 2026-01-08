@@ -1,0 +1,32 @@
+<configuration>
+
+  <!-- Debug-Ausgabe mit Source-Position -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <includeCallerData>true</includeCallerData>
+
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} : %highlight(%-5level) : %file:%line : %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Datei-Logging (optional) -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/app.log</file>
+
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>7</maxHistory>
+    </rollingPolicy>
+
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %file:%line : %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Debug-Profil: alles ab TRACE -->
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
+  </root>
+
+</configuration>

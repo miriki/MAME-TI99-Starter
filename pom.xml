@@ -1,0 +1,40 @@
+<project xmlns="https://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.miriki.ti99</groupId>
+    <artifactId>mame</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>MAME TI99 Starter</name>
+
+	<properties>
+
+		<maven.compiler.source>21</maven.compiler.source>
+		<maven.compiler.target>21</maven.compiler.target>
+		<maven.compiler.release>21</maven.compiler.release>
+
+	</properties>
+
+    <dependencies>
+
+        <!-- Engine-Library -->
+        <dependency>
+            <groupId>com.miriki.ti99</groupId>
+            <artifactId>imagetools</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- Logging-Implementation (für Starter/UI) -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+
+    </dependencies>
+
+</project>
