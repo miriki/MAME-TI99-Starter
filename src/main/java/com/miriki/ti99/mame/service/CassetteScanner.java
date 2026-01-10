@@ -4,39 +4,35 @@ import java.util.List;
 
 import com.miriki.ti99.mame.dto.CassetteEntry;
 
-//##################################################
-
+/**
+ * Scanner for cassette media files.
+ * <p>
+ * Supports WAV and FLAC cassette formats and produces {@link CassetteEntry}
+ * instances for each discovered file.
+ */
 public class CassetteScanner extends MediaScanner<CassetteEntry> {
 
-    // --------------------------------------------------
-    
-	@Override
-	protected List<String> getExtensions() {
-		
-	    return List.of( "wav", "flac" );
-	    
-    } // getExtensions
-
-    // --------------------------------------------------
-    
+    /**
+     * Returns the supported cassette file extensions.
+     */
     @Override
-    protected CassetteEntry createEntry( String cPath, String cName, String cExt ) {
-    	
-        return new CassetteEntry( cPath, cName, cExt );
-        
-    } // createEntry
+    protected List<String> getExtensions() {
+        return List.of("wav", "flac");
+    }
 
-    // --------------------------------------------------
-    
-	@Override 
-	protected CassetteEntry createNoneEntry() { 
-		
-		return CassetteEntry.none(); 
-		
-	} // createNoneEntry
-		 
-    // --------------------------------------------------
-    
-} // class CassetteScanner
+    /**
+     * Creates a {@link CassetteEntry} for a discovered file.
+     */
+    @Override
+    protected CassetteEntry createEntry(String path, String name, String ext) {
+        return new CassetteEntry(path, name, ext);
+    }
 
-//##################################################
+    /**
+     * Creates the special "none" placeholder entry.
+     */
+    @Override
+    protected CassetteEntry createNoneEntry() {
+        return CassetteEntry.none();
+    }
+}

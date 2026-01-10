@@ -1,40 +1,20 @@
 package com.miriki.ti99.mame.ui.mamedevices;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.miriki.ti99.mame.ui.UiConstants;
-	
-//############################################################################
 
-// -----------------------------------------------------------------------------
-// ⚔️ Registry is the single source of truth.
-// Tabs are NOT identified by their designer-given titles.
-// Instead, they are mapped through the comboName → PebDevice → prettyTitle chain.
-// -----------------------------------------------------------------------------
-//
-// ComboBox selection (comboName) → Registry lookup (PebDevice) → Controller sets tab title (prettyTitle)
-//
-// This ensures:
-// - Internal consistency: logic uses stable keys (paramName).
-// - UI flexibility: visible titles can be changed without breaking identification.
-// - Designer independence: initial tab titles are irrelevant, as they are overwritten.
-//
-// Reminder to future maintainers:
-// Do not rely on the tab's visible title for identification.
-// Always consult the Registry (MirikiPebDevices) for the canonical mapping.
-//-----------------------------------------------------------------------------
-
+/**
+ * Registry of all supported PEB devices.
+ */
 public class PebDevices {
 
-	// --------------------------------------------------
-	
-    private static final Logger log = LoggerFactory.getLogger( PebDevices.class );
-	
-    // database of all devices
+    // -------------------------------------------------------------------------
+    // Device registry
+    // -------------------------------------------------------------------------
+
     private static final List<PebDevice> DEVICES = List.of(
         new PebDevice("32kmem",        "32K Memory",     "TI-99 32KiB memory expansion card"),
         new PebDevice("bwg",           "BWG Fdc",        "SNUG BwG Floppy Controller"),
@@ -58,144 +38,93 @@ public class PebDevices {
         new PebDevice("tirs232",       "TI RS232",       "TI-99 RS232/PIO interface"),
         new PebDevice("usbsm",         "USB Sm",         "Nouspikel USB/Smartmedia card"),
         new PebDevice("whtscsi",       "WHT SCSI",       "Western Horizon Technologies SCSI host adapter")
-    ); // DEVICES
+    );
 
-    // BY_COMBO is the canonical lookup.
-    // Do not rely on tab titles – always resolve devices via comboName → PebDevice.
+    /** Lookup table: comboName → PebDevice (lowercase keys). */
     private static final Map<String, PebDevice> BY_COMBO =
         DEVICES.stream().collect(Collectors.toMap(
-            d -> d.getComboName().toLowerCase(), d -> d )
-        ); // BY_COMBO
+            d -> d.getComboName().toLowerCase(),
+            d -> d
+        ));
 
-	// --------------------------------------------------
-	
-    // public access
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
 
+    /** Returns all registered devices. */
     public static List<PebDevice> all() {
-    	
         return DEVICES;
-        
-    } // all
+    }
 
-    // --------------------------------------------------
-    
-    // returns the item as displayed in the combobox text and its list items
-    public static PebDevice byComboName( String comboName ) {
-    	
-        if ( comboName == null ) return null;
-        return BY_COMBO.get( comboName.toLowerCase());
-        
-    } // byComboName
+    /** Returns the device for a given comboName (case‑insensitive). */
+    public static PebDevice byComboName(String comboName) {
+        if (comboName == null) return null;
+        return BY_COMBO.get(comboName.toLowerCase());
+    }
 
-    // --------------------------------------------------
-    
-    // returns a list to be used as the combobox model
+    /** Returns a ComboBox model: NONE + all comboNames. */
     public static String[] comboModel() {
-    	
-		log.debug( "----- start: comboModel()" );
-		
-        // for the models: NONE + all comboNames
         String[] arr = new String[DEVICES.size() + 1];
         arr[0] = UiConstants.CBX_SEL_NONE;
-        for ( int i = 0; i < DEVICES.size(); i++ ) {
-            arr[i + 1] = DEVICES.get( i ).getComboName();
+
+        for (int i = 0; i < DEVICES.size(); i++) {
+            arr[i + 1] = DEVICES.get(i).getComboName();
         }
 
-        log.debug( "----- end: comboModel() ---> String[{}]", arr.length );
-		
         return arr;
-        
-    } // comboModel
+    }
 
-    // --------------------------------------------------
-    
-    // returns a "pretty" title, more human readable
-    public static String toPrettyTitle( String comboName ) {
-    	
-    	PebDevice d = byComboName( comboName );
+    /** Returns the human‑readable title for UI tabs. */
+    public static String toPrettyTitle(String comboName) {
+        PebDevice d = byComboName(comboName);
         return d != null ? d.getPrettyTitle() : comboName;
-        
-    } // toPrettyTitle
+    }
 
-    // --------------------------------------------------
-    
-    // returns an all-lowercase of the device name
-    public static String toParamName( String comboName ) {
-    	
-    	PebDevice d = byComboName( comboName );
+    /** Returns the lowercase parameter name for MAME. */
+    public static String toParamName(String comboName) {
+        PebDevice d = byComboName(comboName);
         return d != null ? d.getParamName() : comboName.toLowerCase();
-        
-    } // toParamName
+    }
 
-    // --------------------------------------------------
-    
-    // returns the tab name corresponding to the device (to show / hide it)
-    public static String toInternalName( String comboName ) {
-    	
-    	PebDevice d = byComboName( comboName );
-        return d != null ? d.getInternalName() : ( "Panel_PEB_" + comboName );
-        
-    } // toInternalName
-    
-    // --------------------------------------------------
-    
-} // class MirikiPebDevices
+    /** Returns the internal panel name for showing/hiding device tabs. */
+    public static String toInternalName(String comboName) {
+        PebDevice d = byComboName(comboName);
+        return d != null ? d.getInternalName() : ("Panel_PEB_" + comboName);
+    }
+}
 
 //############################################################################
 
-/*
- * an (internal) helping data class for the peb devices class
+/**
+ * Internal data class representing a single PEB device.
  */
-
 class PebDevice {
 
-    // --------------------------------------------------
-    
-    private static final Logger log = LoggerFactory.getLogger( PebDevice.class );
-	
-    private final String comboName;     // display in text / list of the combobox, e.g. camelcase like "TiRs232"
-    private final String prettyTitle;   // "pretty" title, more human readable, e.g. "TI RS232"
-    private final String paramName;     // parameter for external program, all lowercase title, e.g. "tirs232"
-    private final String internalName;  // name of the corresponding panel to show / hide, e.g. "Panel_PEB_TiRs232"
-    private final String deviceComment; // verbose Name and / or brief description of the device as additional info
+    private final String comboName;
+    private final String prettyTitle;
+    private final String paramName;
+    private final String internalName;
+    private final String deviceComment;
 
-    // --------------------------------------------------
-    
-    // constructor - creates the entry of a device
-    public PebDevice( String comboName, String prettyTitle, String cardComment ) {
-    	
-		log.debug( "----- start: [constructor] PebDevice()" );
-		
+    /**
+     * Creates a new device entry.
+     */
+    public PebDevice(String comboName, String prettyTitle, String cardComment) {
         this.comboName = comboName;
         this.prettyTitle = prettyTitle;
         this.paramName = comboName.toLowerCase();
         this.internalName = "Panel_PEB_" + comboName;
-        this.deviceComment = "Panel_PEB_" + cardComment;
+        this.deviceComment = cardComment;
+    }
 
-		log.debug( "----- end: [constructor] PebDevice()" );
-        
-    } // [constructor] PebDevice
+    public String getComboName()     { return comboName; }
+    public String getPrettyTitle()   { return prettyTitle; }
+    public String getParamName()     { return paramName; }
+    public String getInternalName()  { return internalName; }
+    public String getDeviceComment() { return deviceComment; }
 
-    // --------------------------------------------------
-    
-    public String getComboName()      { return comboName; }
-    public String getPrettyTitle()    { return prettyTitle; }
-    public String getParamName()      { return paramName; }
-    public String getInternalName()   { return internalName; }
-    public String getDeviceComment()  { return deviceComment; }
-
-    // --------------------------------------------------
-    
     @Override
     public String toString() {
-    	
-        // useful for debugging oder logging
         return comboName;
-        
-    } // toString
-	
-    // --------------------------------------------------
-    
-} // class PebDevice
-
-//############################################################################
+    }
+}

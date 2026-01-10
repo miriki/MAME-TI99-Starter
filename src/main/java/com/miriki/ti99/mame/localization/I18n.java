@@ -7,79 +7,107 @@ import java.util.ResourceBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// ##################################################
-
+/**
+ * Centralized internationalization helper.
+ * <p>
+ * Provides access to the active {@link ResourceBundle}, manages the current
+ * locale and offers a simple translation method {@link #t(String)}.
+ */
 public final class I18n {
 
-    public static final Locale LOCALE_EN_US = Locale.forLanguageTag( "en-US" );
-    public static final Locale LOCALE_EN_GB = Locale.forLanguageTag( "en-GB" );
-    public static final Locale LOCALE_EN_AU = Locale.forLanguageTag( "en-AU" );
-    public static final Locale LOCALE_DE_DE = Locale.forLanguageTag( "de-DE" );
-    public static final Locale LOCALE_DE_AT = Locale.forLanguageTag( "de-AT" );
-    public static final Locale LOCALE_DE_CH = Locale.forLanguageTag( "de-CH" );
-    public static final Locale LOCALE_FR_FR = Locale.forLanguageTag( "fr-FR" );
-    public static final Locale LOCALE_IT_IT = Locale.forLanguageTag( "it-IT" );
-    
+    // -------------------------------------------------------------------------
+    // Supported locales
+    // -------------------------------------------------------------------------
+
+    public static final Locale LOCALE_EN_US = Locale.forLanguageTag("en-US");
+    public static final Locale LOCALE_EN_GB = Locale.forLanguageTag("en-GB");
+    public static final Locale LOCALE_EN_AU = Locale.forLanguageTag("en-AU");
+
+    public static final Locale LOCALE_DE_DE = Locale.forLanguageTag("de-DE");
+    public static final Locale LOCALE_DE_AT = Locale.forLanguageTag("de-AT");
+    public static final Locale LOCALE_DE_CH = Locale.forLanguageTag("de-CH");
+
+    public static final Locale LOCALE_FR_FR = Locale.forLanguageTag("fr-FR");
+    public static final Locale LOCALE_IT_IT = Locale.forLanguageTag("it-IT");
+
+    // -------------------------------------------------------------------------
+    // State
+    // -------------------------------------------------------------------------
+
     private static Locale currentLocale = LOCALE_DE_DE;
-    
-    private static ResourceBundle bundle = loadBundle( currentLocale );
+    private static ResourceBundle bundle = loadBundle(currentLocale);
 
-    private static final Logger log = LoggerFactory.getLogger( I18n.class );
+    private static final Logger log = LoggerFactory.getLogger(I18n.class);
 
-    // --------------------------------------------------
-    
-    private I18n() {}
+    // -------------------------------------------------------------------------
 
-    // --------------------------------------------------
-    
-    private static ResourceBundle loadBundle( Locale locale ) {
-    	
-        return ResourceBundle.getBundle( "localization.messages", locale );
-        
-    } // loadBundle
+    private I18n() {
+        // Utility class
+    }
 
-    // --------------------------------------------------
-    
-    public static void setLocale( Locale locale ) {
-    	
+    // -------------------------------------------------------------------------
+    // Bundle access
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the currently active resource bundle.
+     */
+    public static ResourceBundle getBundle() {
+        return bundle;
+    }
+
+    private static ResourceBundle loadBundle(Locale locale) {
+        return ResourceBundle.getBundle("localization.messages", locale);
+    }
+
+    // -------------------------------------------------------------------------
+    // Locale management
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sets the active locale and reloads the resource bundle.
+     *
+     * @param locale the new locale
+     */
+    public static void setLocale(Locale locale) {
         currentLocale = locale;
-        bundle = loadBundle( locale );
-    	log.info( "Locale switched to: {}", locale );
-    	
-    } // setLocale
+        bundle = loadBundle(locale);
+        log.info("Locale switched to: {}", locale);
+    }
 
-    // --------------------------------------------------
-    
+    /**
+     * Returns the currently active locale.
+     */
     public static Locale getLocale() {
-    	
         return currentLocale;
-        
-    } // getLocale
+    }
 
-    // --------------------------------------------------
-    
+    /**
+     * Returns the current language code in the form {@code xx_YY}.
+     */
     public static String getCurrentLanguageCode() {
-    	
-        return currentLocale.toLanguageTag().toLowerCase().replace('-', '_');
-        
-    } // getCurrentLanguageCode
+        return currentLocale.toLanguageTag()
+                .toLowerCase()
+                .replace('-', '_');
+    }
 
-    // --------------------------------------------------
-    
-    public static String t( String key ) {
-    	
+    // -------------------------------------------------------------------------
+    // Translation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Translates the given key using the active resource bundle.
+     * <p>
+     * If the key is missing, a placeholder of the form {@code ??key??} is returned.
+     *
+     * @param key the translation key
+     * @return the translated text or a placeholder if missing
+     */
+    public static String t(String key) {
         try {
-            return bundle.getString( key );
-            
-        } catch ( MissingResourceException e ) {
+            return bundle.getString(key);
+        } catch (MissingResourceException e) {
             return "??" + key + "??";
-            
         }
-        
-    } // t
-    
-    // --------------------------------------------------
-    
-} // class I18n
-
-//##################################################
+    }
+}

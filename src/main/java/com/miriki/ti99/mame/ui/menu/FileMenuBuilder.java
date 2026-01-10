@@ -1,62 +1,33 @@
 package com.miriki.ti99.mame.ui.menu;
 
-import java.awt.event.WindowEvent;
+import javax.swing.JMenu;
 
-import javax.swing.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.miriki.ti99.mame.localization.I18n;
 import com.miriki.ti99.mame.ui.MainAppFrame;
 import com.miriki.ti99.mame.ui.MainAppFrameComponents;
 
-//##################################################
-
+/**
+ * Builds the File menu.
+ */
 public class FileMenuBuilder {
 
-    // --------------------------------------------------
-    
-	private final MainAppFrameComponents ui;
-	private final MainAppFrame frame;
+    private final MainAppFrameComponents ui;
+    private final MainAppFrame frame;
 
-    private static final Logger log = LoggerFactory.getLogger( FileMenuBuilder.class );
+    public FileMenuBuilder(MainAppFrameComponents ui, MainAppFrame frame) {
+        this.ui = ui;
+        this.frame = frame;
+    }
 
-    // private final MainAppFrame frame;
+    /**
+     * Populates the given File menu.
+     */
+    public void build(JMenu menu) {
 
-    // --------------------------------------------------
-    
-    public FileMenuBuilder( MainAppFrameComponents ui, MainAppFrame frame ) {
-    	
-    	this.ui = ui;
-    	this.frame = frame;
-        
-    } // [ûconstructor] FileMenuBuilder
+        ui.menuFile = menu;
 
-    // --------------------------------------------------
-    
-    public JMenu build() {
+        ui.menuFileExit = I18nMenuFactory.createMenuItem(menu, "menu.file.exit");
 
-        log.debug( "----- start: build()" );
-
-        // JMenu result = new JMenu( "File" );
-        ui.menuFile = new JMenu( I18n.t( "menu.file" ));
-
-        ui.menuFileExit = new JMenuItem( I18n.t( "menu.file.exit" ));
-        ui.menuFileExit.addActionListener( e -> System.exit( 0 ));
-        ui.menuFileExit.addActionListener(e -> {
-            frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-        });
-        ui.menuFile.add( ui.menuFileExit );
-
-        log.debug( "----- end: build() ---> {}", ui.menuFile );
-
-        return ui.menuFile;
-        
-    } // build
-
-    // --------------------------------------------------
-    
+        // Clean shutdown via MainAppFrame
+        ui.menuFileExit.addActionListener(e -> frame.exitApplication());
+    }
 }
-
-//##################################################

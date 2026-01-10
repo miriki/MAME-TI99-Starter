@@ -16,124 +16,95 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.miriki.ti99.mame.ui.UiConstants;
 
-//############################################################################
-
+/**
+ * Utility functions for file and directory handling.
+ * <p>
+ * This class provides helpers for checking file/directory existence,
+ * scanning directories for media files, normalizing paths and validating
+ * write permissions.
+ */
 public class FileTools {
 
-	// --------------------------------------------------
-	
-    private static final Logger log = LoggerFactory.getLogger( FileTools.class );
-	
-	// --------------------------------------------------
-	
-    public static boolean fileExists( String dpf ) {
-	
-		log.debug( "----- start: fileExists( '{}' )", dpf );
-		
-    	boolean result;
-		File chk;
-		
-		result = true;
-		
-		chk = new File( dpf );
-		
-        if (( ! chk.exists() ) || ( ! chk.isFile() )) {
-        	result = false;
+    // -------------------------------------------------------------------------
+    // Existence checks
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns whether the given path points to an existing file.
+     */
+    public static boolean fileExists(String path) {
+        File chk = new File(path);
+        return chk.exists() && chk.isFile();
+    }
+
+    /**
+     * Returns whether the given directory exists.
+     */
+    public static boolean dirExists(String dir) {
+        return dirExists(dir, "");
+    }
+
+    /**
+     * Returns whether all directories in a semicolon-separated list exist.
+     *
+     * @param subDirList semicolon-separated list of directories
+     * @param baseDir    optional base directory for relative paths
+     */
+    public static boolean dirExists(String subDirList, String baseDir) {
+        Path basePath = Paths.get(baseDir.trim()).normalize();
+        String[] subDirs = subDirList.split(";");
+
+        for (String subDir : subDirs) {
+            subDir = subDir.trim();
+            if (subDir.isEmpty()) continue;
+
+            Path subPath = Paths.get(subDir).normalize();
+            Path fullPath = subPath.isAbsolute() ? subPath : basePath.resolve(subPath);
+
+            if (!Files.exists(fullPath) || !Files.isDirectory(fullPath)) {
+                return false;
+            }
         }
-		
-		log.debug( "----- end: fileExists() ---> {}", result );
 
-		return result;
+        return true;
+    }
 
-    } // fileExists()
+    // -------------------------------------------------------------------------
+    // Directory scanning
+    // -------------------------------------------------------------------------
 
-	// --------------------------------------------------
-	
-    public static boolean dirExists( String dpf ) {
+    /**
+     * Scans directories for files matching the given extensions.
+     * <p>
+     * Returns a sorted list of unique base names (without extension),
+     * with {@link UiConstants#CBX_SEL_NONE} inserted at index 0.
+     */
+    public static List<String> scanDirectories(String basePath,
+                                               String subPath,
+                                               String... fileExt) {
 
-		log.debug( "----- start: dirExists( '{}' )", dpf );
-		
-		boolean result;
-		
-		result = true;
-		
-		result = dirExists( dpf, "" );
-		
-		log.debug( "----- end: fileExists() ---> {}", result );
-
-		return result;
-
-    } // dirExists()
-
-	// ----------
-	
-    public static boolean dirExists( String subDirList, String baseDir ) {
-
-		log.debug( "----- start: dirExists( '{}', '{}' )", subDirList, baseDir );
-		
-		boolean result;
-		
-		result = true;
-		
-	    Path basePath = Paths.get( baseDir.trim() ).normalize();
-	    String[] subDirArray = subDirList.split( ";" );
-	    
-	    for ( String subDir : subDirArray ) {
-	    	subDir = subDir.trim();
-	        if ( ! subDir.isEmpty() ) {
-
-		        Path subPath = Paths.get( subDir ).normalize();
-	
-		        // Absolut oder relativ?
-		        Path fullPath = subPath.isAbsolute() ? subPath : basePath.resolve( subPath );
-	
-		        if (( ! Files.exists( fullPath )) || ( ! Files.isDirectory( fullPath ))) {
-		            result = false;
-		        }
-
-	        }
-	    }
-
-		log.debug( "----- end: dirExists() ---> {}", result );
-
-		return result;
-
-    } // dirExists()
-
-	// --------------------------------------------------
-
-    public static List<String> scanDirectories( String basePath, String subPath, String... fileExt ) {
-    	
-		log.debug( "----- start: scanDirectories( '{}', '{}', '{}' )", basePath, subPath, fileExt );
-		
-        // key = lowercased name (zum Duplikatfilter), value = originaler Name (für Anzeige)
         Map<String, String> unique = new LinkedHashMap<>();
 
-        String[] dirs = subPath.split( ";" );
-        for ( String dir : dirs ) {
-            File folder = new File( basePath, dir.trim() );
-            if ( ! folder.isDirectory()) continue;
+        for (String dir : subPath.split(";")) {
+            File folder = new File(basePath, dir.trim());
+            if (!folder.isDirectory()) continue;
 
-            // File[] files = folder.listFiles(( d, name ) -> name.toLowerCase( Locale.ROOT ).endsWith( "." + fileExtension ));
-            File[] files = folder.listFiles(( d, name ) -> {
-                String lower = name.toLowerCase( Locale.ROOT );
-                for ( String ext : fileExt ) {
+            File[] files = folder.listFiles((d, name) -> {
+                String lower = name.toLowerCase(Locale.ROOT);
+                for (String ext : fileExt) {
                     if (lower.endsWith("." + ext)) return true;
                 }
                 return false;
             });
-            if ( files == null ) continue;
 
-            for ( File file : files ) {
-                // String original = file.getName().replaceFirst( "(?i)\\.zip$", "" ).trim();
-                // if ( original.isEmpty() ) continue;
+            if (files == null) continue;
+
+            for (File file : files) {
                 String original = file.getName().trim();
-                String lower    = original.toLowerCase(Locale.ROOT);
+                String lower = original.toLowerCase(Locale.ROOT);
+
                 for (String ext : fileExt) {
                     String dotExt = "." + ext.toLowerCase(Locale.ROOT);
                     if (lower.endsWith(dotExt)) {
@@ -142,185 +113,133 @@ public class FileTools {
                     }
                 }
 
-                if (original.isEmpty()) continue;
-
-                String key = original.toLowerCase( Locale.ROOT );
-                // Nur den ersten Treffer behalten, um Original-Schreibweise konsistent zu halten
-                unique.putIfAbsent( key, original );
+                if (!original.isEmpty()) {
+                    unique.putIfAbsent(original.toLowerCase(Locale.ROOT), original);
+                }
             }
         }
 
-        // Werte extrahieren und locale-bewusst, case-insensitiv sortieren
-        List<String> sorted = new ArrayList<>( unique.values() );
-        Collator collator = Collator.getInstance( Locale.getDefault() );
-        collator.setStrength( Collator.PRIMARY ); // ignoriert Groß/Kleinschreibung, Akzente
-        sorted.sort(( a, b ) -> collator.compare( a, b ));
+        List<String> sorted = new ArrayList<>(unique.values());
+        Collator collator = Collator.getInstance(Locale.getDefault());
+        collator.setStrength(Collator.PRIMARY);
+        sorted.sort(collator::compare);
 
-        // Platzhalter oben fix
-        sorted.add( 0, UiConstants.CBX_SEL_NONE );
-
-		log.debug( "----- end: scanDirectories() ---> List:String[{}]", sorted.size() );
-        
+        sorted.add(0, UiConstants.CBX_SEL_NONE);
         return sorted;
-        
-    } // scanDirectories
-    
-	// --------------------------------------------------
+    }
 
+    // -------------------------------------------------------------------------
+    // Name formatting
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns a human-readable name for a settings file.
+     */
     public static String prettyName(Path p) {
-
-    	log.debug( "----- start: prettyName( '{}' )", p );
-    	
-    	String result = p.getFileName().toString();
-    	
-        if ( result.endsWith( ".settings" )) {
-        	result = result.substring( 0, result.length() - ".settings".length() );
-        }
-        
-        result = result.replace( '_', ' ' );
-
-        log.debug( "----- end: prettyName() ---> '{}'", result );
-
-        return result;
-        
-    } // prettyName
-    
-	// --------------------------------------------------
-
-    public static String editName(Path p) {
-
-    	log.debug( "----- start: editName( '{}' )", p );
-    	
-    	String result = p.getFileName().toString();
+        String result = p.getFileName().toString();
 
         if (result.endsWith(".settings")) {
-        	result = result.substring(0, result.length() - ".settings".length());
+            result = result.substring(0, result.length() - ".settings".length());
         }
 
-        log.debug( "----- end: editName() ---> '{}'", result );
+        return result.replace('_', ' ');
+    }
 
-        return result; // Unterstriche bleiben erhalten
+    /**
+     * Returns the editable base name of a settings file (underscores preserved).
+     */
+    public static String editName(Path p) {
+        String result = p.getFileName().toString();
 
-    } // editName
-    
-	// --------------------------------------------------
-
-    public static String safeFileName(String userInput) {
-    	
-    	log.debug( "----- start: safeFileName( '{}' )", userInput );
-    	
-        String result = userInput.trim();
-
-        result = result.replace( " ", "_" );
-
-        if ( ! result.endsWith( ".settings" )) {
-        	result = result + ".settings";
+        if (result.endsWith(".settings")) {
+            result = result.substring(0, result.length() - ".settings".length());
         }
-
-        log.debug( "----- end: safeFileName() ---> '{}'", result );
 
         return result;
+    }
 
-    } // safeFileName
+    /**
+     * Converts user input into a safe settings filename.
+     */
+    public static String safeFileName(String userInput) {
+        String result = userInput.trim().replace(" ", "_");
 
-	// --------------------------------------------------
+        if (!result.endsWith(".settings")) {
+            result += ".settings";
+        }
+
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Path normalization
+    // -------------------------------------------------------------------------
 
     private static String normalizeDir(String dir) {
-    	
-    	log.debug( "----- start: normalizeDir( '{}' )", dir );
-    	    	
-        Path p = Paths.get( dir ).normalize();
+        Path p = Paths.get(dir).normalize();
         String result = p.toString();
 
-        // Wenn kein Trenner am Ende → hinzufügen
-        if ( ! result.endsWith( File.separator )) {
-        	result = result + File.separator;
+        if (!result.endsWith(File.separator)) {
+            result += File.separator;
         }
 
-        log.debug( "----- end: normalizeDir() ---> '{}'", result );
-
         return result;
+    }
 
-    } // normalizeDir
-    
-	// --------------------------------------------------
-
+    /**
+     * Normalizes a semicolon-separated list of directories.
+     */
     public static String normalizeMultiPath(String multi) {
-    	
-    	log.debug( "----- start: normalizeDir( '{}' )", multi );
-    	
-    	// TODO: globeron reported: in add option it adds the \ after the last option then mame cannot start the geneve.
-    	// fixed: The action Event Listener was active for "normal" textfields, too, not only for "path" ones.
-
-    	String result = "";
-    	
-        if (( multi != null ) && ( ! multi.isBlank() )) {
-
-	        result = Arrays.stream(multi.split(";"))
-	                .map(String::trim)
-	                .filter(s -> !s.isEmpty())
-	                .map(FileTools::normalizeDir)
-	                .collect(Collectors.joining(";"));
-
+        if (multi == null || multi.isBlank()) {
+            return "";
         }
 
-        log.debug( "----- end: normalizeDir() ---> '{}'", result );
-        
-        return result;
-        
-    } // normalizeMultiPath
-    
-    // --------------------------------------------------
+        return Arrays.stream(multi.split(";"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(FileTools::normalizeDir)
+                .collect(Collectors.joining(";"));
+    }
 
-    public static boolean canWriteFile( Path file ) {
-    	
-    	log.debug( "----- start: canWriteFile( '{}' )", file );
-    	
-    	boolean result = false;
-    	
+    // -------------------------------------------------------------------------
+    // Write permission check
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns whether the given file can be written to.
+     * <p>
+     * If the directory does not exist, it attempts to create it.
+     * If the file does not exist, it attempts to create and delete it.
+     */
+    public static boolean canWriteFile(Path file) {
         try {
             Path dir = file.getParent();
-            if ( dir == null ) return false;
+            if (dir == null) return false;
 
-            // Verzeichnis existiert nicht → versuchen anzulegen
-            if ( ! Files.exists( dir )) {
-                Files.createDirectories( dir );
+            if (!Files.exists(dir)) {
+                Files.createDirectories(dir);
             }
 
-            // Verzeichnis existiert, aber nicht beschreibbar
-            if ( ! Files.isWritable( dir )) {
+            if (!Files.isWritable(dir)) {
                 return false;
             }
 
-            // Datei existiert → prüfen ob beschreibbar
-            if ( Files.exists( file )) {
-                return Files.isWritable( file );
+            if (Files.exists(file)) {
+                return Files.isWritable(file);
             }
 
-            // Datei existiert nicht → testen ob sie angelegt werden kann
-            try ( OutputStream out = Files.newOutputStream( file,
+            try (OutputStream out = Files.newOutputStream(
+                    file,
                     StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE )) {
-                // Datei erfolgreich angelegt → wieder löschen
+                    StandardOpenOption.WRITE)) {
+                // created successfully
             }
-            Files.deleteIfExists( file );
 
-            result = true;
+            Files.deleteIfExists(file);
+            return true;
 
-        } catch ( IOException e ) {
-        	
-            result = false;
-            
+        } catch (IOException e) {
+            return false;
         }
-
-        log.debug( "----- end: canWriteFile() ---> {}", result );
-
-        return result;
-
-    } // canWriteFile
-
-    // --------------------------------------------------
-
+    }
 }
-
-//############################################################################

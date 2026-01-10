@@ -12,129 +12,157 @@ import java.util.Map;
 
 import com.miriki.ti99.mame.dto.MediaEntry;
 
-//##################################################
-
+/**
+ * Base class for all media scanners.
+ * <p>
+ * A {@code MediaScanner} resolves one or more search directories, scans them
+ * for files matching specific extensions, and produces {@link MediaEntry}
+ * instances for each discovered media file.
+ *
+ * @param <T> the concrete media entry type
+ */
 public abstract class MediaScanner<T extends MediaEntry> {
 
-    // --------------------------------------------------
-    
+    // -------------------------------------------------------------------------
+    // Abstract factory methods
+    // -------------------------------------------------------------------------
+
+    /** Returns the supported file extensions (without dot). */
     protected abstract List<String> getExtensions();
-    protected abstract T createEntry( String path, String name, String ext );
+
+    /** Creates a media entry for a discovered file. */
+    protected abstract T createEntry(String path, String name, String ext);
+
+    /** Creates the special "none" placeholder entry. */
     protected abstract T createNoneEntry();
 
-    // --------------------------------------------------
-    
-    public List<T> scan( String basePath, String mediaPath ) {
-    	
-        List<Path> paths =   resolvePaths   ( basePath, mediaPath );
-        List<String> names = scanDirectories( paths );
-        List<T> entries =    buildEntries   ( names, paths );
-        
-        return finalize( entries );
-        
-    } // scan
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
 
-    // --------------------------------------------------
-    
-    protected List<Path> resolvePaths( String basePath, String mediaPath ) { 
-    	
+    /**
+     * Scans the given media path(s) and returns a sorted, deduplicated list of
+     * media entries.
+     *
+     * @param basePath  the base directory
+     * @param mediaPath semicolon-separated list of subdirectories
+     */
+    public List<T> scan(String basePath, String mediaPath) {
+        List<Path> paths = resolvePaths(basePath, mediaPath);
+        List<String> names = scanDirectories(paths);
+        List<T> entries = buildEntries(names, paths);
+        return finalize(entries);
+    }
+
+    // -------------------------------------------------------------------------
+    // Path resolution
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolves all semicolon-separated directory names into absolute paths.
+     */
+    protected List<Path> resolvePaths(String basePath, String mediaPath) {
         List<Path> result = new ArrayList<>();
-        for ( String part : mediaPath.split( ";" )) {
-        	
+
+        for (String part : mediaPath.split(";")) {
             String trimmed = part.trim();
-            if ( trimmed.isEmpty() ) continue;
-            
-            try {
-                result.add( Paths.get( basePath, trimmed ));
-            } catch ( InvalidPathException ex ) {
-                // ignore
+            if (trimmed.isEmpty()) {
+                continue;
             }
-            
+
+            try {
+                result.add(Paths.get(basePath, trimmed));
+            } catch (InvalidPathException ex) {
+                // ignore invalid entries
+            }
         }
-        
+
         return result;
-        
-    } // resolvePaths
-    
-    // --------------------------------------------------
-    
-    protected List<String> scanDirectories( List<Path> paths ) { 
-    	
+    }
+
+    // -------------------------------------------------------------------------
+    // Directory scanning
+    // -------------------------------------------------------------------------
+
+    /**
+     * Scans all directories for files matching the supported extensions.
+     *
+     * @return list of file names without extension
+     */
+    protected List<String> scanDirectories(List<Path> paths) {
         List<String> names = new ArrayList<>();
 
-        for ( Path p : paths ) {
-            if ( ! Files.exists( p )) continue;
+        for (Path p : paths) {
+            if (!Files.exists(p)) {
+                continue;
+            }
 
-            try ( var stream = Files.list( p )) {
-            	
-                stream.forEach( file -> {
+            try (var stream = Files.list(p)) {
+                stream.forEach(file -> {
                     String fn = file.getFileName().toString();
                     String lower = fn.toLowerCase();
-                    for ( String ext : getExtensions() ) {
-	                    String dotext = "." + ext;
-	                    if ( lower.endsWith( dotext )) {
-	                        names.add( fn.substring( 0, fn.length() - dotext.length() ));
-	                    }
+
+                    for (String ext : getExtensions()) {
+                        String dotext = "." + ext;
+                        if (lower.endsWith(dotext)) {
+                            names.add(fn.substring(0, fn.length() - dotext.length()));
+                        }
                     }
                 });
-                
             } catch (Exception ex) {
-                // ignore
+                // ignore unreadable directories
             }
-            
         }
 
         return names;
-        
-    } // scanDirectories 
-    
-    // --------------------------------------------------
-    
-    protected List<T> buildEntries( List<String> names, List<Path> paths ) {
+    }
 
+    // -------------------------------------------------------------------------
+    // Entry construction
+    // -------------------------------------------------------------------------
+
+    /**
+     * Builds media entries for all discovered names and paths.
+     */
+    protected List<T> buildEntries(List<String> names, List<Path> paths) {
         List<T> result = new ArrayList<>();
 
-        for ( String name : names ) {
-            for ( Path p : paths ) {
+        for (String name : names) {
+            for (Path p : paths) {
+                for (String ext : getExtensions()) {
+                    Path file = p.resolve(name + "." + ext);
 
-            	for (String ext : getExtensions()) {
-            		
-	                Path file = p.resolve( name + "." + ext );
-	
-	                if ( Files.exists( file )) {
-	                    result.add( createEntry( p.toString(), name, ext ));
-	                }
-                
-            	}
+                    if (Files.exists(file)) {
+                        result.add(createEntry(p.toString(), name, ext));
+                    }
+                }
             }
         }
 
         return result;
-        
-    } // buildEntries
-    
-    // --------------------------------------------------
-    
-    protected List<T> finalize( List<T> entries ) {
+    }
 
+    // -------------------------------------------------------------------------
+    // Finalization: dedup + sort
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deduplicates entries by media name (case-insensitive) and sorts them
+     * alphabetically.
+     */
+    protected List<T> finalize(List<T> entries) {
         List<T> withNone = new ArrayList<>();
-        // withNone.add( createNoneEntry() );
-        withNone.addAll( entries );
+        // withNone.add(createNoneEntry()); // optional placeholder
+        withNone.addAll(entries);
 
         Map<String, T> unique = new LinkedHashMap<>();
-        for ( T e : withNone ) {
-            unique.putIfAbsent( e.getMediaName().toLowerCase(), e );
+        for (T e : withNone) {
+            unique.putIfAbsent(e.getMediaName().toLowerCase(), e);
         }
 
-        List<T> deduped = new ArrayList<>( unique.values() );
-        deduped.sort( Comparator.comparing( T::getMediaName, String.CASE_INSENSITIVE_ORDER ));
+        List<T> deduped = new ArrayList<>(unique.values());
+        deduped.sort(Comparator.comparing(T::getMediaName, String.CASE_INSENSITIVE_ORDER));
 
         return deduped;
-        
-    } // finalize
-    
-    // --------------------------------------------------
-    
+    }
 }
-
-//##################################################

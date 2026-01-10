@@ -22,178 +22,137 @@ import com.miriki.ti99.mame.localization.I18n;
 import com.miriki.ti99.mame.tools.FileTools;
 import com.miriki.ti99.mame.ui.util.ControlCollector;
 
-//############################################################################
-
+/**
+ * Handles saving and restoring UI control values to and from a settings file.
+ * <p>
+ * Only {@link JTextField} and {@link JComboBox} components are persisted.
+ * Additional controls inside tab containers are collected recursively.
+ */
 public class SettingsManager {
 
-	// --------------------------------------------------
-	
-    private static final Logger log = LoggerFactory.getLogger( SettingsManager.class );
-	
-	// --------------------------------------------------
-	
-    public static void save( Map<String,JComponent> controls, Map<String,Component> tabMap, Path targetFile ) {
-    	
-		log.debug( "----- start: save( '{}', '{}', '{}' )", controls, tabMap, targetFile );
-		
+    private static final Logger log = LoggerFactory.getLogger(SettingsManager.class);
+
+    // -------------------------------------------------------------------------
+    // Saving
+    // -------------------------------------------------------------------------
+
+    /**
+     * Saves all control values into the given target file.
+     *
+     * @param controls mapping of control keys to UI components
+     * @param tabMap   mapping of tab identifiers to tab root components
+     * @param targetFile the file to write to
+     */
+    public static void save(Map<String, JComponent> controls,
+                            Map<String, Component> tabMap,
+                            Path targetFile) {
+
         Properties props = new Properties();
 
-        // 1. Alle Controls aus dem Containerbaum
-        for ( Map.Entry<String, JComponent> entry : controls.entrySet() ) {
-
-            String key = entry.getKey();
-            JComponent comp = entry.getValue();
-
-            log.trace( "  Having control {} -> '{}'", key, props.getProperty(key) );
-            
-            if ( comp instanceof JTextField tf ) {
-            	
-                props.setProperty( key, tf.getText() );
-                
-                log.trace( "    saved (txt): {} = '{}'", key, tf.getText() );
-            
-            } else if ( comp instanceof JComboBox<?> cbx ) {
-            	
-                Object sel = cbx.getSelectedItem();
-                
-                if ( sel != null ) {
-                	
-                    props.setProperty( key, sel.toString() );
-                    
-                    log.trace( "    saved (cbx): {} = '{}'", key, sel );
-                    
-                }
-            }
-            
+        // Save direct controls
+        for (var entry : controls.entrySet()) {
+            writeComponentValue(props, entry.getKey(), entry.getValue());
         }
 
-        // 2. Zusätzlich alle Controls aus tabMap durchlaufen
-        for (Map.Entry<String, Component> entry : tabMap.entrySet()) {
+        // Save controls inside tab containers
+        for (var entry : tabMap.entrySet()) {
             Component comp = entry.getValue();
-            if (comp instanceof Container child) {
-                log.trace( "  Having container '{}'", comp.getName() );
+
+            if (comp instanceof Container container) {
                 Map<String, JComponent> extraControls = new HashMap<>();
-                ControlCollector.collectRecursive(child, extraControls);
+                ControlCollector.collectRecursive(container, extraControls);
 
-                for ( Map.Entry<String, JComponent> e2 : extraControls.entrySet() ) {
-                    String key = e2.getKey();
-                    JComponent jc = e2.getValue();
-
-                    log.trace( "    Having control {} -> '{}'", key, props.getProperty(key) );
-
-                    if ( jc instanceof JTextField tf ) {
-                        props.setProperty( key, tf.getText() );
-                        log.trace( "      saved (txt/tabMap): {} = '{}'", key, tf.getText() );
-                    } else if ( jc instanceof JComboBox<?> cbx ) {
-                        Object sel = cbx.getSelectedItem();
-                        if ( sel != null ) {
-                            props.setProperty( key, sel.toString() );
-                            log.trace( "      saved (cbx/tabMap): {} = '{}'", key, sel );
-                        }
-                    }
+                for (var e2 : extraControls.entrySet()) {
+                    writeComponentValue(props, e2.getKey(), e2.getValue());
                 }
             }
         }
 
-        // HIER Locale einfügen
-        props.setProperty( "locale", I18n.getLocale().toLanguageTag() );
+        // Store locale
+        props.setProperty("locale", I18n.getLocale().toLanguageTag());
 
-        // try ( FileOutputStream out = new FileOutputStream( SETTINGS_FILE )) {
-        /*
-        try ( OutputStream out = Files.newOutputStream( targetFile )) {
-            props.store( out, "Emulator GUI Settings" );
-        }
-        */
-        if ( ! FileTools.canWriteFile( targetFile )) {
-            log.warn( "Kann Einstellungen nicht speichern: Datei oder Verzeichnis nicht beschreibbar: {}", targetFile );
+        if (!FileTools.canWriteFile(targetFile)) {
+            log.warn("Kann Einstellungen nicht speichern: Datei oder Verzeichnis nicht beschreibbar: {}", targetFile);
             return;
         }
 
-        try ( OutputStream out = Files.newOutputStream( targetFile )) {
-            props.store( out, "Emulator GUI Settings" );
-            log.info( "Einstellungen gespeichert in '{}'", targetFile );
-        } catch ( IOException e ) {
-            log.warn( "Fehler beim Speichern der Einstellungen in '{}'", targetFile, e );
+        try (OutputStream out = Files.newOutputStream(targetFile)) {
+            props.store(out, "Emulator GUI Settings");
+            log.info("Einstellungen gespeichert in '{}'", targetFile);
+        } catch (IOException e) {
+            log.warn("Fehler beim Speichern der Einstellungen in '{}'", targetFile, e);
         }
-        
-		log.debug( "----- end: save()" );
+    }
 
-    } // save()
-
-	// --------------------------------------------------
-	
-    public static Properties restore( Map<String, JComponent> controls, Path sourceFile ) throws IOException {
-    	
-		log.debug( "----- start: restore( '{}', '{}' )", controls, sourceFile );
-		
-        Properties result = new Properties();
-        
-        // try ( FileInputStream in = new FileInputStream( SETTINGS_FILE )) {
-        try (InputStream in = Files.newInputStream(sourceFile)) {
-        	result.load( in );
-        }
-
-        for ( Map.Entry<String, JComponent> entry : controls.entrySet() ) {
-            String key = entry.getKey();
-            JComponent comp = entry.getValue();
-            String value = result.getProperty( key );
-
-            // log.trace("  Having control {} with value '{}'", key, value);
-            
-            if ( value != null ) {
-                
-            	if ( comp instanceof JTextField tf ) {
-            		
-                    tf.setText( value );
-                
-                    // log.trace( "    restored: txt" );
-                    
-                } else if ( comp instanceof JComboBox<?> cbx ) {
-                    
-                    cbx.setSelectedItem( value );
-
-                    // log.trace( "    restored: cbx" );
-                	
-                }
-            	
+    /**
+     * Writes a single component value into the properties map.
+     */
+    private static void writeComponentValue(Properties props, String key, JComponent comp) {
+        if (comp instanceof JTextField tf) {
+            props.setProperty(key, tf.getText());
+        } else if (comp instanceof JComboBox<?> cbx) {
+            Object sel = cbx.getSelectedItem();
+            if (sel != null) {
+                props.setProperty(key, sel.toString());
             }
-            
         }
-        
-		log.debug( "----- end: restore() ---> '{}'", result );
+    }
+
+    // -------------------------------------------------------------------------
+    // Restoring
+    // -------------------------------------------------------------------------
+
+    /**
+     * Restores control values from the given settings file.
+     *
+     * @param controls mapping of control keys to UI components
+     * @param sourceFile the file to read from
+     * @return the loaded properties
+     */
+    public static Properties restore(Map<String, JComponent> controls,
+                                     Path sourceFile) throws IOException {
+
+        Properties result = new Properties();
+
+        if (!Files.exists(sourceFile)) {
+            log.warn("No settings file found at '{}', skipping restore.", sourceFile);
+            return result;
+        }
+
+        try (InputStream in = Files.newInputStream(sourceFile)) {
+            result.load(in);
+            log.info("Einstellungen geladen aus '{}'", sourceFile);
+        }
+
+        for (var entry : controls.entrySet()) {
+            String key = entry.getKey();
+            String value = result.getProperty(key);
+
+            if (value != null) {
+                JComponent comp = entry.getValue();
+
+                if (comp instanceof JTextField tf) {
+                    tf.setText(value);
+                } else if (comp instanceof JComboBox<?> cbx) {
+                    cbx.setSelectedItem(value);
+                }
+            }
+        }
 
         return result;
-        
-    } // restore()
+    }
 
-	// --------------------------------------------------
-	
-    public static void saveToCurrent( Map<String, JComponent> controls, Map<String, Component> tabMap ) {
+    // -------------------------------------------------------------------------
+    // Convenience wrappers
+    // -------------------------------------------------------------------------
 
-		log.debug( "----- start: saveToCurrent( '{}', '{}' )", controls, tabMap );
-		
-    	save( controls, tabMap, SettingsPathRegistry.getCurrent() );
+    public static void saveToCurrent(Map<String, JComponent> controls,
+                                     Map<String, Component> tabMap) {
+        save(controls, tabMap, SettingsPathRegistry.getCurrent());
+    }
 
-		log.debug( "----- end: saveToCurrent()" );
-    	
-    } // saveToCurrent
-	
-	// --------------------------------------------------
-	
-	public static Properties restoreFromCurrent( Map<String, JComponent> controls ) throws IOException {
-
-		log.debug( "----- start: restoreFromCurrent( '{}' )", controls );
-
-		Properties result = restore(controls, SettingsPathRegistry.getCurrent());
-
-		log.debug( "----- end: saveToCurrent() ---> ''", result );
-		
-		return result;
-    	
-	} // restoreFromCurrent
-
-	// --------------------------------------------------
-	
-} // class SettingsManager
-
-//############################################################################
+    public static Properties restoreFromCurrent(Map<String, JComponent> controls)
+            throws IOException {
+        return restore(controls, SettingsPathRegistry.getCurrent());
+    }
+}

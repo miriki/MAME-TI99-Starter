@@ -24,7 +24,7 @@
   </appender>
 
   <!-- Debug-Profil: alles ab TRACE -->
-  <root level="INFO">
+  <root level="TRACE">
     <appender-ref ref="STDOUT"/>
     <appender-ref ref="FILE"/>
   </root>

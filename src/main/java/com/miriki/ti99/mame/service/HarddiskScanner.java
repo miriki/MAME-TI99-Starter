@@ -4,39 +4,35 @@ import java.util.List;
 
 import com.miriki.ti99.mame.dto.HarddiskEntry;
 
-//##################################################
-
+/**
+ * Scanner for hard‑disk media files.
+ * <p>
+ * Supports CHD and HD disk image formats and produces {@link HarddiskEntry}
+ * instances for each discovered file.
+ */
 public class HarddiskScanner extends MediaScanner<HarddiskEntry> {
 
-    // --------------------------------------------------
-    
-	@Override
-	protected List<String> getExtensions() {
-		
-	    return List.of( "chd", "hd" );
-	    
-	} // getExtensions
-
-    // --------------------------------------------------
-    
+    /**
+     * Returns the supported hard‑disk image file extensions.
+     */
     @Override
-    protected HarddiskEntry createEntry( String hPath, String hName, String hExt ) {
-    	
-        return new HarddiskEntry( hPath, hName, hExt );
-        
-    } // createEntry
+    protected List<String> getExtensions() {
+        return List.of("chd", "hd");
+    }
 
-    // --------------------------------------------------
-    
-	@Override 
-	protected HarddiskEntry createNoneEntry() { 
-		
-		return HarddiskEntry.none(); 
-		
-	} // createNoneEntry
+    /**
+     * Creates a {@link HarddiskEntry} for a discovered file.
+     */
+    @Override
+    protected HarddiskEntry createEntry(String path, String name, String ext) {
+        return new HarddiskEntry(path, name, ext);
+    }
 
-    // --------------------------------------------------
-    
+    /**
+     * Creates the special "none" placeholder entry.
+     */
+    @Override
+    protected HarddiskEntry createNoneEntry() {
+        return HarddiskEntry.none();
+    }
 }
-
-//##################################################

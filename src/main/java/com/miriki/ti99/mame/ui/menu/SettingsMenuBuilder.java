@@ -1,7 +1,8 @@
 package com.miriki.ti99.mame.ui.menu;
 
 import javax.swing.*;
-import javax.swing.event.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import java.nio.file.*;
 import java.awt.Component;
 import java.awt.Graphics;
@@ -10,345 +11,283 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
 
-import com.miriki.ti99.mame.tools.FileTools;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.miriki.ti99.mame.localization.I18n;
+import com.miriki.ti99.mame.tools.FileTools;
 import com.miriki.ti99.mame.persistence.SettingsPathRegistry;
 import com.miriki.ti99.mame.persistence.SettingsUsageRegistry;
 import com.miriki.ti99.mame.ui.MainAppFrame;
 import com.miriki.ti99.mame.ui.MainAppFrameComponents;
 
-//##################################################
-
+/**
+ * Populates the dynamic "Settings" menu.
+ */
 public class SettingsMenuBuilder {
 
-    // --------------------------------------------------
-    
-    private static final Logger log = LoggerFactory.getLogger( SettingsMenuBuilder.class );
-	private final MainAppFrameComponents ui; 
-
+    private final MainAppFrameComponents ui;
     private final MainAppFrame frame;
 
-	// --------------------------------------------------
+    private static final Logger log = LoggerFactory.getLogger(SettingsMenuBuilder.class);
 
-    public SettingsMenuBuilder( MainAppFrame frame, MainAppFrameComponents ui ) {
-    	
+    public SettingsMenuBuilder(MainAppFrame frame, MainAppFrameComponents ui) {
         this.frame = frame;
         this.ui = ui;
-        
-    } // [constructor] SettingsMenuBuilder
+    }
 
-	// --------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
 
-    public JMenu build() {
+    /**
+     * Populates the given Settings menu.
+     */
+    public void build(JMenu menu) {
 
-        log.debug( "----- start: build()" );
+        ui.menuSettings = menu;
 
-        ui.menuSettings = new JMenu( I18n.t( "menu.settings" ));
-
-        ui.menuSettings.addMenuListener( new MenuListener() {
-            @Override
-            public void menuSelected( MenuEvent e ) {
-                rebuildSettingsMenu( ui.menuSettings );
-            }
-            @Override public void menuDeselected( MenuEvent e ) {}
-            @Override public void menuCanceled( MenuEvent e ) {}
+        // Rebuild menu dynamically whenever opened
+        menu.addMenuListener(new MenuListener() {
+            @Override public void menuSelected(MenuEvent e) { rebuildSettingsMenu(menu); }
+            @Override public void menuDeselected(MenuEvent e) {}
+            @Override public void menuCanceled(MenuEvent e) {}
         });
 
-        // Erste Initialisierung
-        rebuildSettingsMenu( ui.menuSettings );
+        // Initial build
+        rebuildSettingsMenu(menu);
+    }
 
-        log.debug( "----- end: build() ---> {}", ui.menuSettings );
+    // -------------------------------------------------------------------------
+    // File normalization
+    // -------------------------------------------------------------------------
 
-        return ui.menuSettings;
-        
-    } // build
-
-	// --------------------------------------------------
-
-    private void normalizeDirectory( Path dir ) {
-
-    	log.debug( "----- start: normalizeDirectory( '{}' )", dir );
-    	
-    	try ( Stream<Path> stream = Files.list( dir )) {
-            stream
-                .filter( p -> p.getFileName().toString().endsWith( ".settings" ))
-                .forEach( this::normalizeSingleFile );
-        } catch ( IOException ex ) {
-            log.warn( "Could not normalize directory '{}': {}", dir, ex );
+    private void normalizeDirectory(Path dir) {
+        try (Stream<Path> stream = Files.list(dir)) {
+            stream.filter(p -> p.getFileName().toString().endsWith(".settings"))
+                  .forEach(this::normalizeSingleFile);
+        } catch (IOException ex) {
+            log.warn("Could not normalize directory '{}': {}", dir, ex);
         }
+    }
 
-    	log.debug( "----- end: normalizeDirectory()" );
-    	
-    } // normalizeDirectory
-    
-	// --------------------------------------------------
+    private Path normalizeSingleFile(Path result) {
 
-    private Path normalizeSingleFile( Path result ) {
+        String fileName = result.getFileName().toString();
+        String safe = FileTools.safeFileName(fileName);
 
-    	log.debug( "----- start: normalizeSingleFile( '{}' )", result );
-
-    	String fileName = result.getFileName().toString();
-        String safe = FileTools.safeFileName( fileName );
-
-        if ( ! safe.equals( fileName )) {
-            Path newPath = result.resolveSibling( safe );
+        if (!safe.equals(fileName)) {
+            Path newPath = result.resolveSibling(safe);
             try {
-                Files.move( result, newPath );
-                log.trace( "Normalized filename: {} → {}", fileName, safe );
-                SettingsUsageRegistry.renameEntry( result, newPath );
+                Files.move(result, newPath);
+                SettingsUsageRegistry.renameEntry(result, newPath);
                 result = newPath;
-            } catch ( IOException ex ) {
-                log.warn( "Could not normalize filename {} → {}", result, newPath, ex );
+            } catch (IOException ex) {
+                log.warn("Could not normalize filename {} → {}", result, newPath, ex);
                 result = null;
             }
         }
-        
-    	log.debug( "----- end: normalizeSingleFile() ---> {}", result );
-    	
+
         return result;
-        
-    } // normalizeSingleFile
-    
-	// --------------------------------------------------
+    }
 
-    private Path chooseSettingsFile( boolean forSave ) {
-    	
-    	log.debug( "----- start: chooseSettingsFile( {} )", forSave );
-    	
-    	Path result = null;
-    	
+    // -------------------------------------------------------------------------
+    // File chooser
+    // -------------------------------------------------------------------------
+
+    private Path chooseSettingsFile(boolean forSave) {
+
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle( forSave ? "Save Settings As …" : "Load Settings" );
-        chooser.setFileSelectionMode( JFileChooser.FILES_ONLY );
+        chooser.setDialogTitle(forSave ? "Save Settings As …" : "Load Settings");
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 
-        // Filter auf .settings-Dateien
-        chooser.setAcceptAllFileFilterUsed( true );
-        chooser.setFileFilter( new javax.swing.filechooser.FileNameExtensionFilter( "Settings files (*.settings)", "settings" ));
+        chooser.setAcceptAllFileFilterUsed(true);
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Settings files (*.settings)", "settings"));
 
-        // Vorschlag: aktueller Pfad oder Default
         Path current = SettingsPathRegistry.getCurrent();
-        if (( current != null ) && ( Files.exists( current ))) {
-            chooser.setSelectedFile( current.toFile() );
+        if (current != null && Files.exists(current)) {
+            chooser.setSelectedFile(current.toFile());
         } else {
-            SettingsPathRegistry.setCurrent( null );
+            SettingsPathRegistry.setCurrent(null);
         }
 
         int fs = forSave
-                ? chooser.showSaveDialog( frame )
-                : chooser.showOpenDialog( frame );
+                ? chooser.showSaveDialog(frame)
+                : chooser.showOpenDialog(frame);
 
-        if ( fs == JFileChooser.APPROVE_OPTION ) {
-            File file = chooser.getSelectedFile();
-            // Für Save: bei fehlender Extension automatisch anhängen
-            if (( forSave ) && ( ! file.getName().toLowerCase().endsWith( ".settings" ))) {
-                file = new File( file.getParentFile(), file.getName() + ".settings" );
-            }
-            result = file.toPath();
+        if (fs != JFileChooser.APPROVE_OPTION) {
+            return null;
         }
-        
-    	log.debug( "----- end: chooseSettingsFile() ---> {}", result );
-    	
-        return result;
-        
-    } // chooseSettingsFile
-    
-	// --------------------------------------------------
+
+        File file = chooser.getSelectedFile();
+
+        if (forSave && !file.getName().toLowerCase().endsWith(".settings")) {
+            file = new File(file.getParentFile(), file.getName() + ".settings");
+        }
+
+        return file.toPath();
+    }
+
+    // -------------------------------------------------------------------------
+    // Save / Load
+    // -------------------------------------------------------------------------
 
     private void doSaveAs() {
 
-    	log.debug( "----- start: doSaveAs()" );
-        
-    	Path chosen = chooseSettingsFile( true );
-        if ( chosen == null ) return;
-        // Dateiname aus der Auswahl holen
-        String rawName = chosen.getFileName().toString();
-        // In sicheren Dateinamen umwandeln (Leerzeichen -> "_", ".settings" anhängen)
-        String safeName = FileTools.safeFileName( rawName );
-        // Pfad mit sicherem Namen im gleichen Verzeichnis bilden
-        Path safePath = chosen.resolveSibling( safeName );
-        // Diesen Pfad als aktuellen Settings-Pfad setzen
-        SettingsPathRegistry.setCurrent( safePath );
-        // Und darunter speichern
-        frame.saveSettings();
-        
-        log.debug( "----- end: doSaveAs()" );
-        
-    } // doSaveAs
+        Path chosen = chooseSettingsFile(true);
+        if (chosen == null) return;
 
-	// --------------------------------------------------
+        String rawName = chosen.getFileName().toString();
+        String safeName = FileTools.safeFileName(rawName);
+        Path safePath = chosen.resolveSibling(safeName);
+
+        SettingsPathRegistry.setCurrent(safePath);
+        frame.saveSettings();
+    }
 
     private void doLoad() {
 
-    	log.debug( "----- start: doLoad()" );
-    	
-        Path chosen = chooseSettingsFile( false );
-        if ( chosen == null ) return;
-        // 1. Datei selbst normalisieren
-        chosen = normalizeSingleFile( chosen );
-        // 2. Ganzes Verzeichnis normalisieren
-        normalizeDirectory( chosen.getParent() );
-        // 3. Jetzt erst laden
-        SettingsPathRegistry.setCurrent( chosen );
+        Path chosen = chooseSettingsFile(false);
+        if (chosen == null) return;
+
+        chosen = normalizeSingleFile(chosen);
+        normalizeDirectory(chosen.getParent());
+
+        SettingsPathRegistry.setCurrent(chosen);
         frame.restoreSettings();
-        
-    	log.debug( "----- end: doSave()" );
-    	
-    } // doLoad
+        frame.collectEmulatorOptions();
+    }
 
-	// --------------------------------------------------
-    
-    private void rebuildSettingsMenu( JMenu result ) {
+    // -------------------------------------------------------------------------
+    // Menu rebuild
+    // -------------------------------------------------------------------------
 
-    	log.debug( "----- start: rebuildSettingsMenu( {} )", result );
+    private void rebuildSettingsMenu(JMenu menu) {
 
-        result.removeAll();
+        menu.removeAll();
 
-        ui.menuSettingsSave = new JMenuItem( I18n.t( "menu.settings.save" ));
-        ui.menuSettingsSave.addActionListener( e -> {
+        // --- Save ---
+        ui.menuSettingsSave = I18nMenuFactory.createMenuItem(menu, "menu.settings.save");
+        ui.menuSettingsSave.addActionListener(e -> {
             Path current = SettingsPathRegistry.getCurrent();
-            if ( ! Files.exists( current )) {
+            if (!Files.exists(current)) {
                 doSaveAs();
             } else {
                 frame.saveSettings();
             }
         });
-        result.add( ui.menuSettingsSave );
 
-        ui.menuSettingsSaveAs = new JMenuItem( I18n.t( "menu.settings.saveas" ));
-        ui.menuSettingsSaveAs.addActionListener( e -> doSaveAs() );
-        result.add( ui.menuSettingsSaveAs );
+        // --- Save As ---
+        ui.menuSettingsSaveAs = I18nMenuFactory.createMenuItem(menu, "menu.settings.saveas");
+        ui.menuSettingsSaveAs.addActionListener(e -> doSaveAs());
 
-        result.addSeparator();
+        menu.addSeparator();
 
-        ui.menuSettingsLoad = new JMenuItem( I18n.t( "menu.settings.load" ));
-        ui.menuSettingsLoad.addActionListener( e -> doLoad() );
-        result.add( ui.menuSettingsLoad );
+        // --- Load ---
+        ui.menuSettingsLoad = I18nMenuFactory.createMenuItem(menu, "menu.settings.load");
+        ui.menuSettingsLoad.addActionListener(e -> doLoad());
 
-        result.addSeparator();
+        menu.addSeparator();
 
-        // Registry aufräumen
+        // Cleanup registries
         SettingsUsageRegistry.cleanupInvalidEntries();
         SettingsPathRegistry.cleanupCurrentIfInvalid();
 
-        int maxPicklist = 10;
-        List<Path> top = SettingsUsageRegistry.getTop( maxPicklist );
+        List<Path> top = SettingsUsageRegistry.getTop(10);
 
-        if ( top.isEmpty() ) {
-        	ui.menuSettingsNoSel = new JMenuItem( I18n.t( "menu.settings.nosel" ));
-        	ui.menuSettingsNoSel.setEnabled( false );
-            result.add( ui.menuSettingsNoSel );
+        if (top.isEmpty()) {
+            ui.menuSettingsNoSel = I18nMenuFactory.createMenuItem(menu, "menu.settings.nosel");
+            ui.menuSettingsNoSel.setEnabled(false);
             return;
         }
 
-        ui.menuSettingsPick = new JMenu( I18n.t( "menu.settings.pick" ));
-        ui.menuSettingsPickByCount = new JMenuItem( I18n.t( "menu.settings.pick.bycount" ));
-        ui.menuSettingsPickByCount.addActionListener( e -> {
-            SettingsUsageRegistry.setSortMode( SettingsUsageRegistry.SortMode.BY_COUNT );
-            rebuildSettingsMenu( result );
+        // --- Pick submenu ---
+        ui.menuSettingsPick = I18nMenuFactory.createSubMenu(menu, "menu.settings.pick");
+
+        ui.menuSettingsPickByCount = I18nMenuFactory.createMenuItem(ui.menuSettingsPick, "menu.settings.pick.bycount");
+        ui.menuSettingsPickByCount.addActionListener(e -> {
+            SettingsUsageRegistry.setSortMode(SettingsUsageRegistry.SortMode.BY_COUNT);
+            rebuildSettingsMenu(menu);
         });
-        ui.menuSettingsPick.add( ui.menuSettingsPickByCount );
-        ui.menuSettingsPickByDate = new JMenuItem( I18n.t( "menu.settings.pick.bydate" ));
-        ui.menuSettingsPickByDate.addActionListener( e -> {
-            SettingsUsageRegistry.setSortMode( SettingsUsageRegistry.SortMode.BY_DATE );
-            rebuildSettingsMenu( result );
+
+        ui.menuSettingsPickByDate = I18nMenuFactory.createMenuItem(ui.menuSettingsPick, "menu.settings.pick.bydate");
+        ui.menuSettingsPickByDate.addActionListener(e -> {
+            SettingsUsageRegistry.setSortMode(SettingsUsageRegistry.SortMode.BY_DATE);
+            rebuildSettingsMenu(menu);
         });
-        ui.menuSettingsPick.add( ui.menuSettingsPickByDate );
-        result.add( ui.menuSettingsPick );
 
-        for ( Path p : top ) {
-            if ( Files.exists( p )) {
-                String label = FileTools.prettyName( p );
-                Path current = SettingsPathRegistry.getCurrent();
+     // --- Recent entries ---
+        for (Path p : top) {
+            if (!Files.exists(p)) continue;
 
-                JMenu configMenu = new JMenu( label );
+            String label = FileTools.prettyName(p);
+            Path current = SettingsPathRegistry.getCurrent();
 
-                // Optional: Radio-Marker
-                if ( p.equals( current )) {
-                	Icon bulletIcon = new Icon() {
-                	    @Override public int getIconWidth() { return 8; }
-                	    @Override public int getIconHeight() { return 8; }
-                	    @Override
-                	    public void paintIcon( Component c, Graphics g, int x, int y ) {
-                	        g.fillOval( x, y, 7, 7 );
-                	    }
-                	};
-                    configMenu.setIcon( bulletIcon );
-                }
+            JMenu configMenu = MenuFactory.createMenu(menu, label);
 
-                // --- Load-Eintrag ganz oben ---
-                ui.menuSettingsPickLoad = new JMenuItem( I18n.t( "menu.settings.pick.load" ));
-                ui.menuSettingsPickLoad.addActionListener( e -> {
-                    frame.saveSettings();
-                    SettingsPathRegistry.setCurrent( p );
-                    frame.restoreSettings();
-                    frame.updateFrameTitle();
-                    log.info( "Switched settings to '{}'", p );
-                });
-                configMenu.add( ui.menuSettingsPickLoad );
-
-                configMenu.addSeparator();
-
-                // --- Delete ---
-                ui.menuSettingsPickDelete = new JMenuItem( I18n.t( "menu.settings.pick.delete" ));
-                ui.menuSettingsPickDelete.addActionListener( e -> {
-                    try {
-                        Files.deleteIfExists( p );
-                        SettingsUsageRegistry.removeEntry( p );
-                        rebuildSettingsMenu( result );
-                    } catch ( IOException ex ) {
-                        log.warn( "Error deleting '{}'", p, ex );
+            // Bullet icon for current config
+            if (p.equals(current)) {
+                configMenu.setIcon(new Icon() {
+                    @Override public int getIconWidth() { return 8; }
+                    @Override public int getIconHeight() { return 8; }
+                    @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                        g.fillOval(x, y, 7, 7);
                     }
                 });
-                configMenu.add( ui.menuSettingsPickDelete );
-
-                // --- Rename ---
-                ui.menuSettingsPickRename = new JMenuItem( I18n.t( "menu.settings.pick.rename" ));
-                ui.menuSettingsPickRename.addActionListener( e -> {
-                	String oldName = FileTools.editName( p );
-                	String newName = JOptionPane.showInputDialog( frame, "Rename config:", oldName );
-                	if ( newName != null && ! newName.isBlank() ) {
-                        String safe = FileTools.safeFileName( newName );
-                        Path newPath = p.resolveSibling( safe );
-
-                        try {
-                            Files.move( p, newPath );
-                            SettingsUsageRegistry.renameEntry( p, newPath );
-                            SettingsPathRegistry.setCurrent( newPath );
-                            frame.restoreSettings();
-                            frame.updateFrameTitle();
-                            rebuildSettingsMenu( result );
-
-                        } catch ( IOException ex ) {
-                            log.warn( "Rename failed: {} → {}", p, newPath, ex );
-                            // JOptionPane.showMessageDialog( frame,
-                            //     "Could not rename file:\n" + ex.getMessage(),
-                            //     "Rename Error",
-                            //     JOptionPane.ERROR_MESSAGE );
-                        }
-                        
-                    }
-                });
-                configMenu.add( ui.menuSettingsPickRename );
-
-                result.add( configMenu );
-                
             }
-            
+
+            // Load
+            ui.menuSettingsPickLoad =
+                I18nMenuFactory.createMenuItem(configMenu, "menu.settings.pick.load");
+            ui.menuSettingsPickLoad.addActionListener(e -> {
+                frame.saveSettings();
+                SettingsPathRegistry.setCurrent(p);
+                frame.restoreSettings();
+                frame.updateFrameTitle();
+                log.info("Switched settings to '{}'", p);
+            });
+
+            configMenu.addSeparator();
+
+            // Delete
+            ui.menuSettingsPickDelete =
+                I18nMenuFactory.createMenuItem(configMenu, "menu.settings.pick.delete");
+            ui.menuSettingsPickDelete.addActionListener(e -> {
+                try {
+                    Files.deleteIfExists(p);
+                    SettingsUsageRegistry.removeEntry(p);
+                    rebuildSettingsMenu(menu);
+                } catch (IOException ex) {
+                    log.warn("Error deleting '{}'", p, ex);
+                }
+            });
+
+            // Rename
+            ui.menuSettingsPickRename =
+                I18nMenuFactory.createMenuItem(configMenu, "menu.settings.pick.rename");
+            ui.menuSettingsPickRename.addActionListener(e -> {
+                String oldName = FileTools.editName(p);
+                String newName = JOptionPane.showInputDialog(frame, "Rename config:", oldName);
+
+                if (newName != null && !newName.isBlank()) {
+                    String safe = FileTools.safeFileName(newName);
+                    Path newPath = p.resolveSibling(safe);
+
+                    try {
+                        Files.move(p, newPath);
+                        SettingsUsageRegistry.renameEntry(p, newPath);
+                        SettingsPathRegistry.setCurrent(newPath);
+                        frame.restoreSettings();
+                        frame.updateFrameTitle();
+                        rebuildSettingsMenu(menu);
+                    } catch (IOException ex) {
+                        log.warn("Rename failed: {} → {}", p, newPath, ex);
+                    }
+                }
+            });
         }
 
-        result.revalidate();
-        result.repaint();
-        
-    	log.debug( "----- end: rebuildSettingsMenu()" );
-
-    } // rebuildSettingsMenu
-    
-	// --------------------------------------------------
-    
+        menu.revalidate();
+        menu.repaint();
+    }
 }
-
-//##################################################
