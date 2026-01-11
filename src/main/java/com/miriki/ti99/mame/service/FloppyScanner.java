@@ -1,6 +1,10 @@
 package com.miriki.ti99.mame.service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.miriki.ti99.mame.dto.FloppyEntry;
 
@@ -35,4 +39,25 @@ public class FloppyScanner extends MediaScanner<FloppyEntry> {
     protected FloppyEntry createNoneEntry() {
         return FloppyEntry.none();
     }
+    
+    @Override
+    protected List<FloppyEntry> buildEntries(List<String> names, List<Path> paths) {
+        List<FloppyEntry> result = super.buildEntries(names, paths);
+
+        for (Path base : paths) {
+            try (Stream<Path> stream = Files.list(base)) {
+                stream
+                    .filter(Files::isDirectory)
+                    .forEach(dir -> {
+                        String name = dir.getFileName().toString();
+                        result.add(createEntry(base.toString(), name, "fiad"));
+                    });
+            } catch (IOException e) {
+                // optional: logging
+            }
+        }
+
+        return result;
+    }
+    
 }

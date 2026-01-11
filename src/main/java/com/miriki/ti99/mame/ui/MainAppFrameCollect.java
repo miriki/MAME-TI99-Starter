@@ -41,7 +41,7 @@ public class MainAppFrameCollect {
 
         String basePath = ui.txtWorkingDir.getText().trim();
         String cartPath = ui.txtCartPath.getText().trim();
-        String fddPath  = ui.txtFddPath.getText().trim();
+        String fddPath  = ui.txtFddPath.getText().trim() + ";" + ui.txtFiadPath.getText().trim();
         String hddPath  = ui.txtHddPath.getText().trim();
         String cassPath = ui.txtCassPath.getText().trim();
 

@@ -1,11 +1,15 @@
 package com.miriki.ti99.mame.domain;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
 
 import com.miriki.ti99.mame.dto.MediaEntry;
 import com.miriki.ti99.mame.ui.UiConstants;
@@ -20,9 +24,15 @@ import com.miriki.ti99.mame.ui.UiConstants;
  */
 public abstract class MediaEntryList<T extends MediaEntry> {
 
+    // private static final Logger log = LoggerFactory.getLogger(MediaEntryList.class);
+
     /** Internal list of media entries. */
     protected final List<T> entries = new ArrayList<>();
 
+    public List<T> getEntries() {
+        return entries;
+    }
+    
     // -------------------------------------------------------------------------
     // Basic list operations
     // -------------------------------------------------------------------------
@@ -90,11 +100,46 @@ public abstract class MediaEntryList<T extends MediaEntry> {
      * @param basePath    the base directory
      * @return the relative path, or {@code null} if not found
      */
-    public Path resolveMediaRelativePath(String displayName, Path basePath) {
-        MediaEntry entry = findByDisplayName(displayName);
-        return entry != null ? entry.getRelativePath(basePath) : null;
-    }
+    public Path resolveMediaRelativePath(String displayName, Path workingDir) {
 
+        if (displayName == null || displayName.isBlank())
+            return null;
+
+        if (UiConstants.CBX_SEL_NONE.equals(displayName))
+            return null;
+
+        // Entry anhand des Display-Namens finden
+        MediaEntry entry = findByDisplayName(displayName);
+        if (entry == null)
+            return null;
+
+        // Absoluten Pfad des Mediums bestimmen
+        Path full = entry.getFullPath();
+
+        // FIAD: Verzeichnis statt Datei
+        if (!Files.exists(full)) {
+            // Prüfen, ob es ein Verzeichnis ohne Extension ist
+            Path fiadDir = entry.getMediaPath().resolve(entry.getMediaName());
+            if (Files.isDirectory(fiadDir)) {
+                try {
+                    return workingDir.relativize(fiadDir);
+                } catch (IllegalArgumentException ex) {
+                    return fiadDir;
+                }
+            }
+
+            // Weder Datei noch FIAD-Verzeichnis gefunden
+            return null;
+        }
+
+        // Normale Datei → relativieren
+        try {
+            return workingDir.relativize(full);
+        } catch (IllegalArgumentException ex) {
+            return full;
+        }
+    }
+    
     // -------------------------------------------------------------------------
     // Lookup
     // -------------------------------------------------------------------------
@@ -106,12 +151,14 @@ public abstract class MediaEntryList<T extends MediaEntry> {
      * @return the matching entry, or {@code null} if not found
      */
     public T findByDisplayName(String displayName) {
+    	// log.debug( "findByDisplayName( displayName='{}' )", displayName );
         if (displayName == null) {
             return null;
         }
 
         for (T entry : entries) {
             if (displayName.equals(entry.getDisplayName())) {
+            	// log.trace( "  +++ found" );
                 return entry;
             }
         }

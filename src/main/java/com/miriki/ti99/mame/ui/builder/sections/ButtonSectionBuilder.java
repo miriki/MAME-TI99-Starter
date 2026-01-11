@@ -2,6 +2,7 @@ package com.miriki.ti99.mame.ui.builder.sections;
 
 import java.awt.Container;
 
+import static com.miriki.ti99.BuildConfig.DEV;
 import com.miriki.ti99.mame.ui.MainAppFrame;
 import com.miriki.ti99.mame.ui.MainAppFrameComponents;
 import com.miriki.ti99.mame.ui.builder.UiFactory;
@@ -50,11 +51,13 @@ public class ButtonSectionBuilder {
         // Test FIAD Button
         // ---------------------------------------------------------------------
 
-        parent.add(ui.btnTestFiad);
-        ui.btnTestFiad.setName("btnTestFiad");
-        ui.btnTestFiad.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 14));
-        ui.btnTestFiad.setBounds(616, 240, 464 + 88, 32);
-        ui.btnTestFiad.addMouseListener(Listeners.testFiadCreate());
-        ui.btnTestFiad.putClientProperty("i18n", "button.testfiad");
+        if (DEV) {
+	        parent.add(ui.btnTestFiad);
+	        ui.btnTestFiad.setName("btnTestFiad");
+	        ui.btnTestFiad.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 14));
+	        ui.btnTestFiad.setBounds(616, 240, 464 + 88, 32);
+	        ui.btnTestFiad.addMouseListener(Listeners.testFiadCreate());
+	        ui.btnTestFiad.putClientProperty("i18n", "button.testfiad");
+        }
     }
 }

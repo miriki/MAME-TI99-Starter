@@ -8,6 +8,10 @@ import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.miriki.ti99.mame.domain.CartridgeEntryList;
+import com.miriki.ti99.mame.domain.CassetteEntryList;
+import com.miriki.ti99.mame.domain.FloppyEntryList;
+import com.miriki.ti99.mame.domain.HarddiskEntryList;
 import com.miriki.ti99.mame.dto.EmulatorOptionsDTO;
 import com.miriki.ti99.mame.ui.builder.MainAppFrameBuilder;
 import com.miriki.ti99.mame.ui.mamedevices.PebDevicesController;
@@ -16,17 +20,33 @@ import com.miriki.ti99.mame.ui.util.UiDefaults;
 
 /**
  * Main application window.
- * Now slim, modular and delegating all logic to helper classes.
+ * Keeps only high-level orchestration; delegates logic to helper classes.
+ * All media lists are owned centrally here and shared with all subsystems.
  */
 public class MainAppFrame extends JFrame {
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = LoggerFactory.getLogger(MainAppFrame.class);
 
+    // -------------------------------------------------------------------------
     // UI components
+    // -------------------------------------------------------------------------
+
     private final MainAppFrameComponents ui;
 
+    // -------------------------------------------------------------------------
+    // Central media lists (single source of truth)
+    // -------------------------------------------------------------------------
+
+    private final FloppyEntryList floppyList;
+    private final HarddiskEntryList harddiskList;
+    private final CassetteEntryList cassetteList;
+    private final CartridgeEntryList cartridgeList;
+
+    // -------------------------------------------------------------------------
     // Subsystems
+    // -------------------------------------------------------------------------
+
     private final MainAppFrameBuilder builder;
     private final MainAppFrameState state;
     private final MainAppFrameMediaUpdater media;
@@ -34,15 +54,33 @@ public class MainAppFrame extends JFrame {
     private final MainAppFrameI18n i18n;
     private final MainAppFrameCollect collector;
 
+    // -------------------------------------------------------------------------
     // PEB controller
-    private PebDevicesController ctlPebDevices;
-    public PebDevicesController getPebDevicesController() { return ctlPebDevices; }
-    public void setPebDevicesController(PebDevicesController ctl) { this.ctlPebDevices = ctl; }
+    // -------------------------------------------------------------------------
 
+    private PebDevicesController ctlPebDevices;
+
+    public PebDevicesController getPebDevicesController() {
+        return ctlPebDevices;
+    }
+
+    public void setPebDevicesController(PebDevicesController ctl) {
+        this.ctlPebDevices = ctl;
+    }
+
+    // -------------------------------------------------------------------------
     // Event suspension flag
+    // -------------------------------------------------------------------------
+
     private boolean eventsSuspended = true;
-    public boolean getEventsSuspended() { return eventsSuspended; }
-    public void setEventsSuspended(boolean evtSusp) { this.eventsSuspended = evtSusp; }
+
+    public boolean getEventsSuspended() {
+        return eventsSuspended;
+    }
+
+    public void setEventsSuspended(boolean evtSusp) {
+        this.eventsSuspended = evtSusp;
+    }
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -58,19 +96,63 @@ public class MainAppFrame extends JFrame {
 
         UiDefaults.apply();
 
-        ui = new MainAppFrameComponents();
+        // --- 1) Create central media lists (one instance per media type) -----
+        this.floppyList = new FloppyEntryList();
+        this.harddiskList = new HarddiskEntryList();
+        this.cassetteList = new CassetteEntryList();
+        this.cartridgeList = new CartridgeEntryList();
+
+        // --- 2) Create UI components -----------------------------------------
+        this.ui = new MainAppFrameComponents();
         setContentPane(ui.getContentPane());
 
-        // Build subsystems
-        builder   = new MainAppFrameBuilder(this, ui);
-        state     = new MainAppFrameState(this, ui);
-        media     = new MainAppFrameMediaUpdater(ui, state);
-        settings  = new MainAppFrameSettings(this, ui, state, media);
-        i18n      = new MainAppFrameI18n(this, ui);
-        collector = new MainAppFrameCollect(this, ui, state, media);
+        // --- 3) Create subsystems and inject shared lists + UI ---------------
+        this.state = new MainAppFrameState(
+                this,
+                ui,
+                floppyList,
+                harddiskList,
+                cassetteList,
+                cartridgeList
+        );
 
+        this.media = new MainAppFrameMediaUpdater(
+                ui,
+                state,
+                floppyList,
+                harddiskList,
+                cassetteList,
+                cartridgeList
+        );
+
+        this.settings = new MainAppFrameSettings(
+                this,
+                ui,
+                state,
+                media
+        );
+
+        this.i18n = new MainAppFrameI18n(
+                this,
+                ui
+        );
+
+        this.collector = new MainAppFrameCollect(
+                this,
+                ui,
+                state,
+                media
+        );
+
+        this.builder = new MainAppFrameBuilder(
+                this,
+                ui
+        );
+
+        // --- 4) Build GUI ----------------------------------------------------
         builder.initGUI();
 
+        // --- 5) Window close handling ----------------------------------------
         addWindowListener(Listeners.onCloseMainFrame(this));
     }
 
@@ -117,6 +199,26 @@ public class MainAppFrame extends JFrame {
     }
 
     // -------------------------------------------------------------------------
+    // Expose media lists if needed elsewhere (optional)
+    // -------------------------------------------------------------------------
+
+    public FloppyEntryList getFloppyList() {
+        return floppyList;
+    }
+
+    public HarddiskEntryList getHarddiskList() {
+        return harddiskList;
+    }
+
+    public CassetteEntryList getCassetteList() {
+        return cassetteList;
+    }
+
+    public CartridgeEntryList getCartridgeList() {
+        return cartridgeList;
+    }
+
+    // -------------------------------------------------------------------------
     // Main entry point
     // -------------------------------------------------------------------------
 
@@ -130,6 +232,13 @@ public class MainAppFrame extends JFrame {
 
                 SwingUtilities.invokeLater(() -> {
                     frame.builder.postGUI();
+
+                    // At this point, media updater can safely scan media,
+                    // because UI and lists are fully wired.
+                    // If scanAllMedia() is currently called elsewhere, you can
+                    // move it here for deterministic order.
+                    // frame.media.scanAllMedia();
+
                     frame.setEventsSuspended(false);
                     frame.collectEmulatorOptions();
                 });

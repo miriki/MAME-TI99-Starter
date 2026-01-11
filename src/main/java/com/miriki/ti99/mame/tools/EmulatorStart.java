@@ -47,6 +47,7 @@ public class EmulatorStart {
     @SuppressWarnings("unused")
     public static String emulatorOptionsConcatenate(EmulatorOptionsDTO dto) {
 
+    	// log.debug( "emulatorOptionsConcatenate( dto={} )", dto.toString() );
         StringBuilder sb = new StringBuilder();
 
         // ---------------------------------------------------------------------
@@ -284,6 +285,7 @@ public class EmulatorStart {
             }
         }
 
+        // log.trace( "  calling appendMedia with 'sb', '-flop1' and dto.fddPathRel1='{}'", dto.fddPathRel1 );
         appendMedia(sb, "-flop1", dto.fddPathRel1);
         appendMedia(sb, "-flop2", dto.fddPathRel2);
         appendMedia(sb, "-flop3", dto.fddPathRel3);
@@ -316,8 +318,10 @@ public class EmulatorStart {
     // -------------------------------------------------------------------------
 
     private static void appendMedia(StringBuilder sb, String option, Path fullPath) {
+        // log.trace( "    appendMedia( {}, {}, {} )", sb.toString(), option, fullPath );
         if (fullPath == null) return;
         sb.append(" ").append(option).append(" ").append(fullPath);
+        // log.trace( "      added to sb: '{} {}'", option, fullPath );
     }
 
     // -------------------------------------------------------------------------

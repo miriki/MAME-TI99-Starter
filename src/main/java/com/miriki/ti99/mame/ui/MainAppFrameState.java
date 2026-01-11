@@ -28,15 +28,30 @@ public class MainAppFrameState {
     // Pending selections for ComboBoxes (restored after model rebuild)
     private final Map<JComboBox<?>, String> pendingSelections = new HashMap<>();
 
-    // Media lists
-    private final CartridgeEntryList cartridgeList = new CartridgeEntryList();
-    private final FloppyEntryList floppyList = new FloppyEntryList();
-    private final HarddiskEntryList harddiskList = new HarddiskEntryList();
-    private final CassetteEntryList cassetteList = new CassetteEntryList();
+    // Shared media lists (injected from MainAppFrame)
+    private final FloppyEntryList floppyList;
+    private final HarddiskEntryList harddiskList;
+    private final CassetteEntryList cassetteList;
+    private final CartridgeEntryList cartridgeList;
 
-    public MainAppFrameState(MainAppFrame frame, MainAppFrameComponents ui) {
+    // -------------------------------------------------------------------------
+    // Constructor – receives shared lists from MainAppFrame
+    // -------------------------------------------------------------------------
+    public MainAppFrameState(
+            MainAppFrame frame,
+            MainAppFrameComponents ui,
+            FloppyEntryList floppyList,
+            HarddiskEntryList harddiskList,
+            CassetteEntryList cassetteList,
+            CartridgeEntryList cartridgeList
+    ) {
         this.frame = frame;
         this.ui = ui;
+
+        this.floppyList = floppyList;
+        this.harddiskList = harddiskList;
+        this.cassetteList = cassetteList;
+        this.cartridgeList = cartridgeList;
     }
 
     // -------------------------------------------------------------------------
@@ -69,10 +84,15 @@ public class MainAppFrameState {
     // -------------------------------------------------------------------------
 
     public Path resolveMediaPath(MediaEntryList<?> list, String displayName) {
+        // log.debug("resolveMediaPath( list={}, displayName='{}' )", list.getDisplayNames(), displayName);
+
         if (displayName == null || displayName.equals(UiConstants.CBX_SEL_NONE)) {
             return null;
         }
+
+        // log.trace("  looking for '{}' in list.findByDisplayName(displayName) ...", displayName);
         MediaEntry entry = list.findByDisplayName(displayName);
+
         return entry != null ? entry.getFullPath() : null;
     }
 
@@ -136,13 +156,15 @@ public class MainAppFrameState {
 
     public EmulatorOptionsDTO buildDTOFromUI() {
 
+        // log.debug("buildDTOFromUI()");
+
         final String cbxSelNone = UiConstants.CBX_SEL_NONE;
 
         EmulatorOptionsDTO result = new EmulatorOptionsDTO();
 
         JComboBox<?>[] slots = {
-            ui.cbxSlot2, ui.cbxSlot3, ui.cbxSlot4,
-            ui.cbxSlot5, ui.cbxSlot6, ui.cbxSlot7, ui.cbxSlot8
+                ui.cbxSlot2, ui.cbxSlot3, ui.cbxSlot4,
+                ui.cbxSlot5, ui.cbxSlot6, ui.cbxSlot7, ui.cbxSlot8
         };
 
         // ---------------------------------------------------------------------
@@ -153,24 +175,27 @@ public class MainAppFrameState {
         Path workingPath = Paths.get(result.mame_WorkingPath);
 
         result.mame_Executable = ui.txtExecutable.getText().trim();
-        result.mame_RomPath    = ui.txtRomPath.getText().trim();
-        result.mame_CartPath   = ui.txtCartPath.getText().trim();
-        result.mame_DskPath    = ui.txtFddPath.getText().trim();
-        result.mame_WdsPath    = ui.txtHddPath.getText().trim();
-        result.mame_CsPath     = ui.txtCassPath.getText().trim();
+        result.mame_RomPath = ui.txtRomPath.getText().trim();
+        result.mame_CartPath = ui.txtCartPath.getText().trim();
+        result.mame_DskPath = ui.txtFddPath.getText().trim();
+        // log.trace( "  [dto].mame_DskPath='{}'", result.mame_DskPath );
+        result.mame_FiadPath = ui.txtFiadPath.getText().trim();
+        result.mame_WdsPath = ui.txtHddPath.getText().trim();
+        // log.trace( "  [dto].mame_WdsPath='{}'", result.mame_WdsPath );
+        result.mame_CsPath = ui.txtCassPath.getText().trim();
 
         // ---------------------------------------------------------------------
         // Main machine options
         // ---------------------------------------------------------------------
 
-        result.mame_Machine  = ui.cbxMachine.getSelectedItem().toString();
+        result.mame_Machine = ui.cbxMachine.getSelectedItem().toString();
         result.mame_GromPort = ui.cbxGromPort.getSelectedItem().toString();
-        result.mame_JoyPort  = ui.cbxJoyPort.getSelectedItem().toString();
+        result.mame_JoyPort = ui.cbxJoyPort.getSelectedItem().toString();
 
         frame.setEventsSuspended(true);
         applyMachineRules(result.mame_Machine, ui.cbxIoPort, ui.cbxSlot1, ui.cbxSlot2, slots);
         applyIoPortRules(ui.cbxIoPort, ui.cbxSlot1);
-        frame.setEventsSuspended(true);
+        frame.setEventsSuspended(false);
 
         result.mame_IoPort = ui.cbxIoPort.getSelectedItem().toString();
 
@@ -187,21 +212,25 @@ public class MainAppFrameState {
         // ---------------------------------------------------------------------
 
         String dsk1 = ui.cbxFlop1.getSelectedItem().toString();
+        // log.trace( "  dsk1='{}'", dsk1 );
         String dsk2 = ui.cbxFlop2.getSelectedItem().toString();
         String dsk3 = ui.cbxFlop3.getSelectedItem().toString();
         String dsk4 = ui.cbxFlop4.getSelectedItem().toString();
 
         result.mame_DSK1 = dsk1;
+        // log.trace( "  [dto].mame_DSK1='{}'", result.mame_DSK1 );
         result.mame_DSK2 = dsk2;
         result.mame_DSK3 = dsk3;
         result.mame_DSK4 = dsk4;
 
         result.fddPathP1 = resolveMediaPath(floppyList, dsk1);
+        // log.trace( "  [dto].fddPathP1='{}'", result.fddPathP1 );
         result.fddPathP2 = resolveMediaPath(floppyList, dsk2);
         result.fddPathP3 = resolveMediaPath(floppyList, dsk3);
         result.fddPathP4 = resolveMediaPath(floppyList, dsk4);
 
         result.fddPathRel1 = floppyList.resolveMediaRelativePath(dsk1, workingPath);
+        // log.trace( "  [dto].fddPathRel1='{}'", result.fddPathRel1 );
         result.fddPathRel2 = floppyList.resolveMediaRelativePath(dsk2, workingPath);
         result.fddPathRel3 = floppyList.resolveMediaRelativePath(dsk3, workingPath);
         result.fddPathRel4 = floppyList.resolveMediaRelativePath(dsk4, workingPath);
@@ -211,18 +240,22 @@ public class MainAppFrameState {
         // ---------------------------------------------------------------------
 
         String wds1 = ui.cbxHard1.getSelectedItem().toString();
+        // log.trace( "  wds1='{}'", wds1 );
         String wds2 = ui.cbxHard2.getSelectedItem().toString();
         String wds3 = ui.cbxHard3.getSelectedItem().toString();
 
         result.mame_WDS1 = wds1;
+        // log.trace( "  [dto].mame_WDS1='{}'", result.mame_WDS1 );
         result.mame_WDS2 = wds2;
         result.mame_WDS3 = wds3;
 
         result.hddPathP1 = resolveMediaPath(harddiskList, wds1);
+        // log.trace( "  [dto].hddPathP1='{}'", result.hddPathP1 );
         result.hddPathP2 = resolveMediaPath(harddiskList, wds2);
         result.hddPathP3 = resolveMediaPath(harddiskList, wds3);
 
         result.hddPathRel1 = harddiskList.resolveMediaRelativePath(wds1, workingPath);
+        // log.trace( "  [dto].hddPathRel1='{}'", result.hddPathRel1 );
         result.hddPathRel2 = harddiskList.resolveMediaRelativePath(wds2, workingPath);
         result.hddPathRel3 = harddiskList.resolveMediaRelativePath(wds3, workingPath);
 

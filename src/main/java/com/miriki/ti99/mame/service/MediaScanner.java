@@ -10,6 +10,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
+
 import com.miriki.ti99.mame.dto.MediaEntry;
 
 /**
@@ -22,6 +25,8 @@ import com.miriki.ti99.mame.dto.MediaEntry;
  * @param <T> the concrete media entry type
  */
 public abstract class MediaScanner<T extends MediaEntry> {
+
+    // private static final Logger log = LoggerFactory.getLogger(MediaScanner.class);
 
     // -------------------------------------------------------------------------
     // Abstract factory methods
@@ -125,16 +130,26 @@ public abstract class MediaScanner<T extends MediaEntry> {
      * Builds media entries for all discovered names and paths.
      */
     protected List<T> buildEntries(List<String> names, List<Path> paths) {
+    	// log.debug( "buildEntries( names={}, paths={} )", names, paths );
         List<T> result = new ArrayList<>();
 
         for (String name : names) {
             for (Path p : paths) {
                 for (String ext : getExtensions()) {
+                	// if ( ext == "dsk" ) {
+                	// log.trace( "  scanning name='{}'", name );
+                	// log.trace( "  scanning path='{}'", p );
+                	// log.trace( "  scanning ext='{}'", ext );
                     Path file = p.resolve(name + "." + ext);
+                	// log.trace( "  file='{}'", file );
 
                     if (Files.exists(file)) {
                         result.add(createEntry(p.toString(), name, ext));
+                    	// log.trace( "  +++ file was found, added to list +++", file );
+                    } else {
+                    	// log.trace( "  --- file was NOT found ---", file );
                     }
+                	// }
                 }
             }
         }

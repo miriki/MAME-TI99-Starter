@@ -188,7 +188,7 @@ public final class Listeners {
                     Path targetDir = Path.of("C:/Users/mritt/AppData/Roaming/TI99MAME/ti99_fiad/chess");
                     Path imagePath = targetDir.resolve("chess.dsk");
 
-                    DiskFormatPreset preset = DiskFormatPreset.TI_SSSD;
+                    DiskFormatPreset preset = DiskFormatPreset.TI_DSDD;
                     DiskFormat format = preset.getFormat();
                     Ti99Image image = new Ti99Image(format);
                     ImageFormatter.initialize(image);

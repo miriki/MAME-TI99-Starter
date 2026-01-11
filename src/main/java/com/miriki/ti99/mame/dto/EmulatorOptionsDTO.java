@@ -68,11 +68,12 @@ public class EmulatorOptionsDTO {
     // Media assignments (DSK, WDS, CS)
     // -------------------------------------------------------------------------
 
-    public String mame_DskPath = "";
-    public String mame_DSK1    = "";
-    public String mame_DSK2    = "";
-    public String mame_DSK3    = "";
-    public String mame_DSK4    = "";
+    public String mame_DskPath  = "";
+    public String mame_FiadPath = "";
+    public String mame_DSK1     = "";
+    public String mame_DSK2     = "";
+    public String mame_DSK3     = "";
+    public String mame_DSK4     = "";
 
     public String mame_WdsPath = "";
     public String mame_WDS1    = "";
